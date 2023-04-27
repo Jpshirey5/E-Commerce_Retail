@@ -4,11 +4,10 @@ const { Product, Category, Tag, ProductTag } = require('../../models');
 // The `/api/products` endpoint
 
 // get all products
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const productData = await
-    products.findAll({
-      include: [{ model: Category, Tag }],
+    const productData = await Product.findAll({
+      include: [{ model: Category }, { model: Tag }],
     });
     res.status(200).json(productData);
   } catch (err) {
@@ -17,14 +16,13 @@ router.get('/', (req, res) => {
 });
 
 // get one product
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const productData = await
-    products.findByPk(req.params.id, {
-      include: [{ model: Category, Tag }],
+    const productData = await Product.findByPk(req.params.id, {
+      include: [{ model: Category }, { model: Tag }],
     });
     if (!productData) {
-      res.status(404).json({ message: 'No category found with this id!' });
+      res.status(404).json({ message: 'No product found with this id!' });
       return;
     }
     res.status(200).json(productData);
@@ -49,13 +47,15 @@ router.post('/', (req, res) => {
       if (req.body.tagIds.length) {
         const productTagIdArr = req.body.tagIds.map((tag_id) => {
           return {
-            product_id: product.id,tag_id,
+            product_id: product.id,
+            tag_id,
           };
         });
         return ProductTag.bulkCreate(productTagIdArr);
+      } else {
+        // if no product tags, just respond
+        res.status(200).json(product);
       }
-      // if no product tags, just respond
-      res.status(200).json(product);
     })
     .then((productTagIds) => res.status(200).json(productTagIds))
     .catch((err) => {
@@ -72,7 +72,7 @@ router.put('/:id', (req, res) => {
       id: req.params.id,
     },
   })
-    .then((product) => {
+    .then(() => {
       // find all associated tags from ProductTag
       return ProductTag.findAll({ where: { product_id: req.params.id } });
     })
@@ -106,8 +106,24 @@ router.put('/:id', (req, res) => {
     });
 });
 
+ // delete product
 router.delete('/:id', (req, res) => {
-  // delete one product by its `id` value
+  Product.destroy({
+    where: {
+      id: req.params.id,
+    },
+  })
+    .then((product) => {
+      if (!product) {
+        res.status(404).json({ message: 'No product found with this id!' });
+        return;
+      }
+      res.status(200).json(product);
+    })
+    .catch((err) => {
+      console.log(err);
+      res.status(500).json(err);
+    });
 });
 
 module.exports = router;
